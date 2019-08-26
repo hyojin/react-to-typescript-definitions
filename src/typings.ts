@@ -21,9 +21,9 @@ export interface ImportedPropTypes {
   propTypes: ImportedPropType[];
 }
 
-export function createTypings(moduleName: string|null, programAst: any, options: IOptions,
-    reactImport: string): string {
-  // #609: configure eol character
+function generateModuleDeclaration(moduleName: string|null, programAst: any, options: IOptions,
+  reactImport: string): dom.ModuleDeclaration {
+    // #609: configure eol character
   dom.config.outputEol = options.eol || '\r\n';
 
   const astq = new ASTQ();
@@ -48,7 +48,6 @@ export function createTypings(moduleName: string|null, programAst: any, options:
     ...getComponentNamesByStaticPropTypeAttribute(ast),
     ...getComponentNamesByJsxInBody(ast)
   ]);
-  const tripleSlashDirectives: dom.TripleSlashDirective[] = [];
   const m = dom.create.module(moduleName || 'moduleName');
 
   m.members.push(dom.create.importAll('React', reactImport));
@@ -71,11 +70,31 @@ export function createTypings(moduleName: string|null, programAst: any, options:
     }
   });
 
+  return m;
+}
+
+export function createTypings(moduleName: string|null, programAst: any, options: IOptions,
+  reactImport: string): string {
+  const tripleSlashDirectives: dom.TripleSlashDirective[] = [];
+  const m = generateModuleDeclaration(moduleName, programAst, options, reactImport);
+
   if (moduleName === null) {
     return m.members.map(member => dom.emit(member)).join('');
   } else {
     return dom.emit(m, { tripleSlashDirectives });
   }
+}
+
+export function createTypingsWithMetadata(moduleName: string|null, programAst: any, options: IOptions,
+  reactImport: string): {kind: string, name: string, emitted: string}[] {
+
+  const m = generateModuleDeclaration(moduleName, programAst, options, reactImport);
+  return m.members.map(member => {
+    return {
+      kind: member.kind,
+      name: member.kind !== 'import' && member.kind !== 'export=' ? member.name : '',
+      emitted: dom.emit(member),
+  }});
 }
 
 function createExportedTypes(m: dom.ModuleDeclaration, ast: AstQuery, componentName: string,

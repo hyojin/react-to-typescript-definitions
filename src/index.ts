@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as getStdin from 'get-stdin';
 import { generateTypings } from './deprecated';
 import { Generator } from './generator';
-import { createTypings } from './typings';
+import { createTypings, createTypingsWithMetadata } from './typings';
 
 export interface InstanceOfResolver {
   (name: string): string|undefined;
@@ -50,7 +50,7 @@ export interface Options {
   /**
    * EOL character. This would be changed to whatever is liked to
    * terminate lines. Defaults to '\r\n'
-   * 
+   *
    * @type {string}
    * @memberOf Options
    */
@@ -134,4 +134,41 @@ export function generateFromAst(moduleName: string|null, ast: any, options: IOpt
     return generateTypings(moduleName, ast, options);
   }
   return createTypings(moduleName, ast, options, reactImport);
+}
+
+export function generateWithMetadataFromSource(moduleName: string|null, code: string, options: IOptions = {},
+  reactImport = 'react'): {kind: string, name: string, emitted: string}[] {
+  const additionalBabylonPlugins = Array.isArray(options.babylonPlugins) ? options.babylonPlugins : [];
+  const ast = babylon.parse(code, {
+    sourceType: 'module',
+    allowReturnOutsideFunction: true,
+    allowImportExportEverywhere: true,
+    allowSuperOutsideMethod: true,
+    plugins: [
+      'jsx',
+      'flow',
+      'asyncFunctions',
+      'classConstructorCall',
+      'doExpressions',
+      'trailingFunctionCommas',
+      'objectRestSpread',
+      'decorators',
+      'classProperties',
+      'exportExtensions',
+      'exponentiationOperator',
+      'asyncGenerators',
+      'functionBind',
+      'functionSent',
+      ...additionalBabylonPlugins
+    ]
+  });
+  if (!options.source) {
+    options.source = code;
+  }
+  return generateWithMetadataFromAst(moduleName, ast, options, reactImport);
+}
+
+export function generateWithMetadataFromAst(moduleName: string|null, ast: any, options: IOptions = {},
+  reactImport = 'react'): {kind: string, name: string, emitted: string}[] {
+  return createTypingsWithMetadata(moduleName, ast, options, reactImport);
 }
